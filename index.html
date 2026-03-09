@@ -3,111 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RR Doubling - Stock Manager</title>
+    <title>RR Doubling - Firebase Ready</title>
     <style>
-        body { font-family: sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 10px; }
-        .container { max-width: 450px; margin: auto; background: #1e1e1e; padding: 15px; border-radius: 12px; }
-        h1 { text-align: center; color: #2196f3; font-size: 1.8rem; margin-bottom: 15px; text-shadow: 2px 2px 4px #000; border-bottom: 2px solid #2196f3; }
-        .summary { display: flex; justify-content: space-between; text-align: center; margin-bottom: 15px; background: #252525; padding: 10px; border-radius: 8px; }
-        .sum-val { font-size: 1.3rem; font-weight: bold; display: block; }
-        .text-in { color: #4caf50; } .text-out { color: #f44336; } .text-bal { color: #2196f3; }
-        input, select, button { width: 100%; padding: 10px; margin: 4px 0; background: #333; color: #fff; border: 1px solid #444; border-radius: 5px; box-sizing: border-box; }
-        .table-container { overflow-x: auto; margin-top: 15px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { border: 1px solid #444; padding: 8px; text-align: center; }
-        th { background-color: #333; }
-        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #333; }
-        .icon-btn { cursor: pointer; border: none; background: transparent; font-size: 14px; padding: 5px; }
+        body { font-family: sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 10px; }
+        .container { max-width: 500px; margin: auto; background: #1e1e1e; padding: 15px; border-radius: 12px; }
+        .summary-box { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; text-align: center; }
+        .sum-card { background: #252525; padding: 8px; border-radius: 6px; }
+        input, select, button { width: 100%; padding: 10px; margin: 4px 0; background: #333; color: white; border: 1px solid #555; border-radius: 6px; box-sizing: border-box; }
+        .item-row { display: flex; justify-content: space-between; background: #252525; padding: 5px 10px; border-radius: 4px; margin-bottom: 4px; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+        th, td { border: 1px solid #444; padding: 6px; text-align: center; }
+        .del { color: #f44336; cursor: pointer; } .edit { color: #2196f3; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🏭 RR Doubling</h1>
-        <div class="summary">
-            <div>In<span id="sumIn" class="sum-val text-in">0</span></div>
-            <div>Out<span id="sumOut" class="sum-val text-out">0</span></div>
-            <div>Bal<span id="bal" class="sum-val text-bal">0</span></div>
+        
+        <div class="summary-box">
+            <div class="sum-card"><small>In</small><div id="sumIn" style="color:#4caf50; font-weight:bold;">0</div></div>
+            <div class="sum-card"><small>Out</small><div id="sumOut" style="color:#f44336; font-weight:bold;">0</div></div>
+            <div class="sum-card"><small>Bal</small><div id="bal" style="color:#2196f3; font-weight:bold;">0</div></div>
         </div>
 
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="newItemName" placeholder="New Item Name">
+            <button onclick="addNewItem()" style="width:auto;">Add</button>
+        </div>
+        <div id="itemsContainer" style="margin-bottom:10px;"></div>
+
+        <input type="hidden" id="editIndex" value="-1">
         <input type="date" id="date">
         <select id="itemDropdown"><option value="">Select Item</option></select>
         <input type="number" id="qty" placeholder="Quantity">
         <select id="type"><option value="In">In</option><option value="Out">Out</option></select>
-        <button onclick="addRecord()" style="background:#555;">Save Record</button>
+        <button id="saveBtn" onclick="saveOrUpdate()" style="background:#4caf50;">Save</button>
 
-        <div style="margin-top:15px; display:flex; gap:5px;">
-            <input type="text" id="newItem" placeholder="Add New Item">
-            <button onclick="manageItem()" style="width:auto;">Add</button>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:4px; margin:10px 0;">
+            <button onclick="filter('all')">All</button>
+            <button onclick="filter('today')">Day</button>
+            <button onclick="filter('weekly')">Week</button>
+            <button onclick="filter('monthly')">Month</button>
         </div>
-        <div id="itemList" style="margin-top:10px; padding:10px; background:#252525; border-radius:5px;"></div>
+        <input type="date" id="customDate" onchange="filter('custom')">
 
-        <div class="table-container">
-            <table>
-                <thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Type</th><th>Act</th></tr></thead>
-                <tbody id="recordTable"></tbody>
-            </table>
-        </div>
+        <table id="tbl">
+            <thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Type</th><th>Act</th></tr></thead>
+            <tbody></tbody>
+        </table>
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            databaseURL: "YOUR_DATABASE_URL",
-            projectId: "stockdb-97331",
-            storageBucket: "stockdb-97331.firebasestorage.app",
-            messagingSenderId: "707175974801",
-            appId: "1:707175974801:web:b9321afd3a3541fb72bc30"
+            apiKey: "AIzaSyD4ENrq0OwhD5Pr1YaUlKtskMqvmZ3FEsQ",
+            authDomain: "stockdb-3bb16.firebaseapp.com",
+            projectId: "stockdb-3bb16",
+            storageBucket: "stockdb-3bb16.firebasestorage.app",
+            messagingSenderId: "74422293265",
+            appId: "1:74422293265:web:aed138404b4989e25f72b0"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        let records = [], items = [];
+        let records = [];
+        let items = [];
 
-        onValue(ref(db, 'stockData'), (snapshot) => {
-            records = snapshot.val() || [];
-            updateUI();
+        onValue(ref(db, 'rr_doubling'), (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                records = data.records || [];
+                items = data.items || [];
+                updateUI();
+            }
         });
 
-        onValue(ref(db, 'itemList'), (snapshot) => {
-            items = snapshot.val() || [];
-            updateUI();
-        });
+        function sync() { set(ref(db, 'rr_doubling'), { records, items }); }
 
-        function updateUI() {
-            let table = document.getElementById('recordTable');
-            table.innerHTML = '';
-            [...records].reverse().forEach((r, i) => {
-                let idx = records.length - 1 - i;
-                table.innerHTML += `<tr><td>${r.date}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.type}</td>
-                    <td><button class="icon-btn" onclick="deleteRecord(${idx})">❌</button></td></tr>`;
+        window.updateUI = function() {
+            let container = document.getElementById('itemsContainer');
+            container.innerHTML = '<b>Items:</b>';
+            items.forEach((it, i) => {
+                container.innerHTML += `<div class="item-row">${it} <span class="del" onclick="deleteItem(${i})">❌</span></div>`;
             });
-
-            document.getElementById('itemList').innerHTML = "<b>Items:</b><br>" + items.map((it, i) => 
-                `<div class="item-row">${it} <button class="icon-btn" onclick="deleteItem(${i})">❌</button></div>`).join('');
-            
             let drop = document.getElementById('itemDropdown');
-            drop.innerHTML = '<option value="">Select Item</option>' + items.map(it => `<option value="${it}">${it}</option>`).join('');
-            
-            let inS = 0, outS = 0;
-            records.forEach(r => { if(r.type == 'In') inS += parseInt(r.qty); else outS += parseInt(r.qty); });
-            document.getElementById('sumIn').innerText = inS;
-            document.getElementById('sumOut').innerText = outS;
-            document.getElementById('bal').innerText = (inS - outS);
+            drop.innerHTML = '<option value="">Select Item</option>';
+            items.forEach(it => { let o = document.createElement("option"); o.value = o.text = it; drop.add(o); });
+            render(records);
         }
 
-        window.addRecord = () => {
-            let r = { date: document.getElementById('date').value, item: document.getElementById('itemDropdown').value, qty: document.getElementById('qty').value, type: document.getElementById('type').value };
-            if(!r.date || !r.item || !r.qty) return alert("Fill all!");
-            records.push(r); set(ref(db, 'stockData'), records);
-        };
+        window.render = function(data) {
+            let tbody = document.querySelector('#tbl tbody');
+            tbody.innerHTML = '';
+            data.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(r => {
+                let idx = records.indexOf(r);
+                tbody.innerHTML += `<tr><td>${r.date}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.type}</td>
+                    <td><span class="edit" onclick="edit(${idx})">✏️</span> <span class="del" onclick="del(${idx})">❌</span></td></tr>`;
+            });
+            let inS = 0, outS = 0;
+            data.forEach(r => { if(r.type === 'In') inS += parseInt(r.qty || 0); else outS += parseInt(r.qty || 0); });
+            document.getElementById('sumIn').innerText = inS; document.getElementById('sumOut').innerText = outS; document.getElementById('bal').innerText = (inS - outS);
+        }
 
-        window.deleteRecord = (i) => { records.splice(i, 1); set(ref(db, 'stockData'), records); };
-        window.manageItem = () => { let val = document.getElementById('newItem').value; if(val) { items.push(val); set(ref(db, 'itemList'), items); document.getElementById('newItem').value = ''; } };
-        window.deleteItem = (i) => { items.splice(i, 1); set(ref(db, 'itemList'), items); };
+        window.saveOrUpdate = function() {
+            let idx = parseInt(document.getElementById('editIndex').value);
+            let r = { date: document.getElementById('date').value, item: document.getElementById('itemDropdown').value, qty: document.getElementById('qty').value, type: document.getElementById('type').value };
+            if(!r.date || !r.qty || !r.item) return alert("All fields required!");
+            if(idx == -1) records.push(r); else records[idx] = r;
+            sync();
+            document.getElementById('editIndex').value = -1;
+            document.getElementById('saveBtn').innerText = "Save";
+        }
+
+        window.addNewItem = function() { let name = document.getElementById('newItemName').value; if(name) { items.push(name); document.getElementById('newItemName').value = ''; sync(); } }
+        window.deleteItem = function(i) { items.splice(i, 1); sync(); }
+        window.edit = function(i) { let r = records[i]; document.getElementById('date').value = r.date; document.getElementById('itemDropdown').value = r.item; document.getElementById('qty').value = r.qty; document.getElementById('type').value = r.type; document.getElementById('editIndex').value = i; document.getElementById('saveBtn').innerText = "Update"; }
+        window.del = function(i) { if(confirm("Delete?")) { records.splice(i, 1); sync(); } }
+        
+        window.filter = function(type) {
+            let now = new Date();
+            let filtered = records.filter(r => {
+                if(type === 'all') return true;
+                if(type === 'today') return r.date === now.toISOString().split('T')[0];
+                if(type === 'weekly') return new Date(r.date) >= new Date(now.setDate(now.getDate() - 7));
+                if(type === 'monthly') return r.date.substring(0,7) === new Date().toISOString().substring(0,7);
+                if(type === 'custom') return r.date === document.getElementById('customDate').value;
+            });
+            render(filtered);
+        }
     </script>
 </body>
 </html>
