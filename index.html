@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RR Doubling - Stock Manager</title>
+    <style>
+        body { font-family: sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 10px; }
+        .container { max-width: 450px; margin: auto; background: #1e1e1e; padding: 15px; border-radius: 12px; }
+        h1 { text-align: center; color: #2196f3; font-size: 1.8rem; margin-bottom: 15px; text-shadow: 2px 2px 4px #000; border-bottom: 2px solid #2196f3; }
+        .summary { display: flex; justify-content: space-between; text-align: center; margin-bottom: 15px; background: #252525; padding: 10px; border-radius: 8px; }
+        .sum-val { font-size: 1.3rem; font-weight: bold; display: block; }
+        .text-in { color: #4caf50; } .text-out { color: #f44336; } .text-bal { color: #2196f3; }
+        input, select, button { width: 100%; padding: 10px; margin: 4px 0; background: #333; color: #fff; border: 1px solid #444; border-radius: 5px; box-sizing: border-box; }
+        .table-container { overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #444; padding: 8px; text-align: center; }
+        th { background-color: #333; }
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #333; }
+        .icon-btn { cursor: pointer; border: none; background: transparent; font-size: 14px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏭 RR Doubling</h1>
+        <div class="summary">
+            <div>In<span id="sumIn" class="sum-val text-in">0</span></div>
+            <div>Out<span id="sumOut" class="sum-val text-out">0</span></div>
+            <div>Bal<span id="bal" class="sum-val text-bal">0</span></div>
+        </div>
+
+        <input type="date" id="date">
+        <select id="itemDropdown"><option value="">Select Item</option></select>
+        <input type="number" id="qty" placeholder="Quantity">
+        <select id="type"><option value="In">In</option><option value="Out">Out</option></select>
+        <button onclick="addRecord()" style="background:#555;">Save Record</button>
+
+        <div style="margin-top:15px; display:flex; gap:5px;">
+            <input type="text" id="newItem" placeholder="Add New Item">
+            <button onclick="manageItem()" style="width:auto;">Add</button>
+        </div>
+        <div id="itemList" style="margin-top:10px; padding:10px; background:#252525; border-radius:5px;"></div>
+
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Type</th><th>Act</th></tr></thead>
+                <tbody id="recordTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            databaseURL: "YOUR_DATABASE_URL",
+            projectId: "stockdb-97331",
+            storageBucket: "stockdb-97331.firebasestorage.app",
+            messagingSenderId: "707175974801",
+            appId: "1:707175974801:web:b9321afd3a3541fb72bc30"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let records = [], items = [];
+
+        onValue(ref(db, 'stockData'), (snapshot) => {
+            records = snapshot.val() || [];
+            updateUI();
+        });
+
+        onValue(ref(db, 'itemList'), (snapshot) => {
+            items = snapshot.val() || [];
+            updateUI();
+        });
+
+        function updateUI() {
+            let table = document.getElementById('recordTable');
+            table.innerHTML = '';
+            [...records].reverse().forEach((r, i) => {
+                let idx = records.length - 1 - i;
+                table.innerHTML += `<tr><td>${r.date}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.type}</td>
+                    <td><button class="icon-btn" onclick="deleteRecord(${idx})">❌</button></td></tr>`;
+            });
+
+            document.getElementById('itemList').innerHTML = "<b>Items:</b><br>" + items.map((it, i) => 
+                `<div class="item-row">${it} <button class="icon-btn" onclick="deleteItem(${i})">❌</button></div>`).join('');
+            
+            let drop = document.getElementById('itemDropdown');
+            drop.innerHTML = '<option value="">Select Item</option>' + items.map(it => `<option value="${it}">${it}</option>`).join('');
+            
+            let inS = 0, outS = 0;
+            records.forEach(r => { if(r.type == 'In') inS += parseInt(r.qty); else outS += parseInt(r.qty); });
+            document.getElementById('sumIn').innerText = inS;
+            document.getElementById('sumOut').innerText = outS;
+            document.getElementById('bal').innerText = (inS - outS);
+        }
+
+        window.addRecord = () => {
+            let r = { date: document.getElementById('date').value, item: document.getElementById('itemDropdown').value, qty: document.getElementById('qty').value, type: document.getElementById('type').value };
+            if(!r.date || !r.item || !r.qty) return alert("Fill all!");
+            records.push(r); set(ref(db, 'stockData'), records);
+        };
+
+        window.deleteRecord = (i) => { records.splice(i, 1); set(ref(db, 'stockData'), records); };
+        window.manageItem = () => { let val = document.getElementById('newItem').value; if(val) { items.push(val); set(ref(db, 'itemList'), items); document.getElementById('newItem').value = ''; } };
+        window.deleteItem = (i) => { items.splice(i, 1); set(ref(db, 'itemList'), items); };
+    </script>
+</body>
+</html>
