@@ -3,137 +3,239 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RR Doubling - Firebase Ready</title>
+    <title>RR Doubling - Inventory</title>
     <style>
-        body { font-family: sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 10px; }
-        .container { max-width: 500px; margin: auto; background: #1e1e1e; padding: 15px; border-radius: 12px; }
-        .summary-box { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; text-align: center; }
-        .sum-card { background: #252525; padding: 8px; border-radius: 6px; }
-        input, select, button { width: 100%; padding: 10px; margin: 4px 0; background: #333; color: white; border: 1px solid #555; border-radius: 6px; box-sizing: border-box; }
-        .item-row { display: flex; justify-content: space-between; background: #252525; padding: 5px 10px; border-radius: 4px; margin-bottom: 4px; font-size: 13px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
-        th, td { border: 1px solid #444; padding: 6px; text-align: center; }
-        .del { color: #f44336; cursor: pointer; } .edit { color: #2196f3; cursor: pointer; }
+        :root {
+            --glass: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --blue-accent: #3498db;
+            --gold-accent: #d4af37;
+        }
+
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: radial-gradient(circle at center, #2c3e50 0%, #000000 100%);
+            background-attachment: fixed;
+            color: white; margin: 0; padding: 15px; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .logo-container { text-align: center; margin: 20px 0; position: relative; }
+        .rr-logo {
+            width: 100px; height: 100px;
+            margin: auto;
+            border-radius: 50%;
+            border: 3px solid var(--gold-accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 40px; font-weight: bold;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);
+            color: var(--gold-accent);
+        }
+
+        .container { width: 100%; max-width: 550px; z-index: 5; }
+
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            padding: 20px; border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            margin-bottom: 20px;
+        }
+
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab-btn { 
+            flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.05); color: white; cursor: pointer; font-weight: bold;
+        }
+        .tab-btn.active { background: var(--blue-accent); }
+
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-card { 
+            background: rgba(0,0,0,0.4); padding: 20px; border-radius: 20px; 
+            text-align: center; border: 1px solid var(--gold-accent);
+        }
+        .stat-val { font-size: 2em; font-weight: bold; margin-top: 5px; }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: rgba(255,255,255,0.1); padding: 12px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid var(--glass-border); text-align: center; }
+
+        input, select, button { 
+            width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px;
+            border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white;
+            box-sizing: border-box; outline: none;
+        }
+        button.save { background: #27ae60; font-weight: bold; border: none; cursor: pointer; }
+        #adminView { display: none; }
+
+        /* Custom Login Overlay */
+        #loginOverlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+            display: none; justify-content: center; align-items: center; z-index: 100;
+        }
     </style>
 </head>
 <body>
+
+    <div id="loginOverlay">
+        <div class="glass-card" style="width: 80%; max-width: 300px;">
+            <h3>Admin Login</h3>
+            <input type="password" id="pinInput" placeholder="Enter PIN">
+            <button onclick="checkPin()" style="background:var(--blue-accent);">Submit</button>
+            <button onclick="document.getElementById('loginOverlay').style.display='none'">Cancel</button>
+        </div>
+    </div>
+
+    <div class="logo-container">
+        <div class="rr-logo">RR</div>
+    </div>
+
     <div class="container">
-        <h1>🏭 RR Doubling</h1>
-        
-        <div class="summary-box">
-            <div class="sum-card"><small>In</small><div id="sumIn" style="color:#4caf50; font-weight:bold;">0</div></div>
-            <div class="sum-card"><small>Out</small><div id="sumOut" style="color:#f44336; font-weight:bold;">0</div></div>
-            <div class="sum-card"><small>Bal</small><div id="bal" style="color:#2196f3; font-weight:bold;">0</div></div>
+        <div class="nav-tabs">
+            <button class="tab-btn active" id="btnDash" onclick="showView('dash')">Dashboard</button>
+            <button class="tab-btn" id="btnAdmin" onclick="requestAdmin()">Admin Panel</button>
         </div>
 
-        <div style="display:flex; gap:5px;">
+        <div id="dashView">
+            <div class="stat-grid">
+                <div class="stat-card"><small>IN</small><div id="sumIn" class="stat-val" style="color:#2ecc71;">0</div></div>
+                <div class="stat-card"><small>OUT</small><div id="sumOut" class="stat-val" style="color:#e74c3c;">0</div></div>
+                <div class="stat-card"><small>BAL</small><div id="bal" class="stat-val" style="color:#3498db;">0</div></div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:5px; margin-bottom:10px;">
+                <button class="tab-btn" style="padding:8px; font-size:10px;" onclick="filterData('daily')">Daily</button>
+                <button class="tab-btn" style="padding:8px; font-size:10px;" onclick="filterData('weekly')">Weekly</button>
+                <button class="tab-btn" style="padding:8px; font-size:10px;" onclick="filterData('monthly')">Monthly</button>
+                <button class="tab-btn" style="padding:8px; font-size:10px;" onclick="filterData('all')">All</button>
+            </div>
+            <input type="date" id="customDate" onchange="filterData('custom')">
+
+            <div class="glass-card">
+                <div class="table-responsive">
+                    <table id="tbl">
+                        <thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Type</th><th>Act</th></tr></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:15px; align-items:center;">
+                    <button onclick="prevPage()" id="prevBtn" style="width:70px; padding:5px;">Prev</button>
+                    <span id="pageInfo" style="font-size: 12px;">Page 1</span>
+                    <button onclick="nextPage()" id="nextBtn" style="width:70px; padding:5px;">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="adminView" class="glass-card">
+            <h3>Entry Management</h3>
             <input type="text" id="newItemName" placeholder="New Item Name">
-            <button onclick="addNewItem()" style="width:auto;">Add</button>
+            <button onclick="addNewItem()" style="background:var(--blue-accent);">Add Item</button>
+            <hr style="border:0; border-top:1px solid var(--glass-border); margin:20px 0;">
+            <input type="hidden" id="editIndex" value="-1">
+            <input type="date" id="date">
+            <select id="itemDropdown"></select>
+            <input type="number" id="qty" placeholder="Quantity">
+            <select id="type"><option value="In">In</option><option value="Out">Out</option></select>
+            <button id="saveBtn" class="save" onclick="saveOrUpdate()">Save Record</button>
         </div>
-        <div id="itemsContainer" style="margin-bottom:10px;"></div>
-
-        <input type="hidden" id="editIndex" value="-1">
-        <input type="date" id="date">
-        <select id="itemDropdown"><option value="">Select Item</option></select>
-        <input type="number" id="qty" placeholder="Quantity">
-        <select id="type"><option value="In">In</option><option value="Out">Out</option></select>
-        <button id="saveBtn" onclick="saveOrUpdate()" style="background:#4caf50;">Save</button>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:4px; margin:10px 0;">
-            <button onclick="filter('all')">All</button>
-            <button onclick="filter('today')">Day</button>
-            <button onclick="filter('weekly')">Week</button>
-            <button onclick="filter('monthly')">Month</button>
-        </div>
-        <input type="date" id="customDate" onchange="filter('custom')">
-
-        <table id="tbl">
-            <thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Type</th><th>Act</th></tr></thead>
-            <tbody></tbody>
-        </table>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-        const firebaseConfig = {
+        const db = getDatabase(initializeApp({
             apiKey: "AIzaSyD4ENrq0OwhD5Pr1YaUlKtskMqvmZ3FEsQ",
             authDomain: "stockdb-3bb16.firebaseapp.com",
             projectId: "stockdb-3bb16",
             storageBucket: "stockdb-3bb16.firebasestorage.app",
             messagingSenderId: "74422293265",
             appId: "1:74422293265:web:aed138404b4989e25f72b0"
-        };
+        }));
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        let records = [], items = [], filteredRecords = [], currentPage = 1, authCallback = null;
+        const rowsPerPage = 5;
 
-        let records = [];
-        let items = [];
-
-        onValue(ref(db, 'rr_doubling'), (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                records = data.records || [];
-                items = data.items || [];
-                updateUI();
-            }
+        onValue(ref(db, 'rr_doubling'), (s) => {
+            const data = s.val();
+            if (data) { records = data.records || []; items = data.items || []; filteredRecords = records; render(); }
         });
 
-        function sync() { set(ref(db, 'rr_doubling'), { records, items }); }
+        // Auth Logic
+        window.requestAdmin = (cb) => { 
+            authCallback = cb; 
+            document.getElementById('loginOverlay').style.display = 'flex'; 
+        }
+        window.checkPin = () => {
+            if(document.getElementById('pinInput').value === "2711") {
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('pinInput').value = '';
+                if(authCallback) authCallback(); else showView('admin');
+            } else alert("Invalid PIN");
+        }
 
-        window.updateUI = function() {
-            let container = document.getElementById('itemsContainer');
-            container.innerHTML = '<b>Items:</b>';
-            items.forEach((it, i) => {
-                container.innerHTML += `<div class="item-row">${it} <span class="del" onclick="deleteItem(${i})">❌</span></div>`;
-            });
-            let drop = document.getElementById('itemDropdown');
+        window.render = function() {
+            const drop = document.getElementById('itemDropdown');
             drop.innerHTML = '<option value="">Select Item</option>';
             items.forEach(it => { let o = document.createElement("option"); o.value = o.text = it; drop.add(o); });
-            render(records);
+
+            const sorted = [...filteredRecords].sort((a,b) => new Date(b.date) - new Date(a.date));
+            const totalPages = Math.ceil(sorted.length / rowsPerPage) || 1;
+            const start = (currentPage - 1) * rowsPerPage;
+            const paginated = sorted.slice(start, start + rowsPerPage);
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = paginated.map(r => {
+                const idx = records.indexOf(r);
+                return `<tr><td>${r.date}</td><td>${r.item}</td><td>${r.qty}</td>
+                    <td style="color:${r.type==='In'?'#2ecc71':'#e74c3c'}">${r.type}</td>
+                    <td><span onclick="auth('edit', ${idx})" style="cursor:pointer;">✎</span> <span onclick="auth('del', ${idx})" style="cursor:pointer; color:#e74c3c;">✕</span></td></tr>`;
+            }).join('');
+
+            let inS=0, outS=0;
+            filteredRecords.forEach(r => { if(r.type==='In') inS+=parseInt(r.qty||0); else outS+=parseInt(r.qty||0); });
+            document.getElementById('sumIn').innerText = inS;
+            document.getElementById('sumOut').innerText = outS;
+            document.getElementById('bal').innerText = (inS - outS);
+            document.getElementById('pageInfo').innerText = `Page ${currentPage} of ${totalPages}`;
         }
 
-        window.render = function(data) {
-            let tbody = document.querySelector('#tbl tbody');
-            tbody.innerHTML = '';
-            data.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(r => {
-                let idx = records.indexOf(r);
-                tbody.innerHTML += `<tr><td>${r.date}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.type}</td>
-                    <td><span class="edit" onclick="edit(${idx})">✏️</span> <span class="del" onclick="del(${idx})">❌</span></td></tr>`;
+        window.filterData = (range) => {
+            const now = new Date();
+            if(range === 'daily') filteredRecords = records.filter(r => r.date === now.toISOString().split('T')[0]);
+            else if(range === 'weekly') filteredRecords = records.filter(r => new Date(r.date) >= new Date(now.setDate(now.getDate()-7)));
+            else if(range === 'monthly') filteredRecords = records.filter(r => new Date(r.date).getMonth() === now.getMonth());
+            else if(range === 'custom') filteredRecords = records.filter(r => r.date === document.getElementById('customDate').value);
+            else filteredRecords = records;
+            currentPage = 1; render();
+        }
+
+        window.showView = (v) => {
+            document.getElementById('dashView').style.display = v==='dash'?'block':'none';
+            document.getElementById('adminView').style.display = v==='admin'?'block':'none';
+        }
+        window.auth = (type, i) => {
+            requestAdmin(() => {
+                if(type === 'edit') { const r = records[i]; document.getElementById('date').value=r.date; document.getElementById('itemDropdown').value=r.item; document.getElementById('qty').value=r.qty; document.getElementById('type').value=r.type; document.getElementById('editIndex').value=i; document.getElementById('saveBtn').innerText="Update"; showView('admin'); }
+                else { if(confirm("Delete this record?")) { records.splice(i,1); set(ref(db, 'rr_doubling'), {records, items}); } }
             });
-            let inS = 0, outS = 0;
-            data.forEach(r => { if(r.type === 'In') inS += parseInt(r.qty || 0); else outS += parseInt(r.qty || 0); });
-            document.getElementById('sumIn').innerText = inS; document.getElementById('sumOut').innerText = outS; document.getElementById('bal').innerText = (inS - outS);
         }
-
-        window.saveOrUpdate = function() {
-            let idx = parseInt(document.getElementById('editIndex').value);
-            let r = { date: document.getElementById('date').value, item: document.getElementById('itemDropdown').value, qty: document.getElementById('qty').value, type: document.getElementById('type').value };
-            if(!r.date || !r.qty || !r.item) return alert("All fields required!");
-            if(idx == -1) records.push(r); else records[idx] = r;
-            sync();
-            document.getElementById('editIndex').value = -1;
-            document.getElementById('saveBtn').innerText = "Save";
+        window.saveOrUpdate = () => {
+            const idx = parseInt(document.getElementById('editIndex').value);
+            const r = { date: document.getElementById('date').value, item: document.getElementById('itemDropdown').value, qty: document.getElementById('qty').value, type: document.getElementById('type').value };
+            if(!r.date || !r.qty || !r.item) return alert("Fill all fields!");
+            if(idx===-1) records.push(r); else records[idx]=r;
+            set(ref(db, 'rr_doubling'), {records, items});
+            document.getElementById('editIndex').value=-1; showView('dash');
         }
-
-        window.addNewItem = function() { let name = document.getElementById('newItemName').value; if(name) { items.push(name); document.getElementById('newItemName').value = ''; sync(); } }
-        window.deleteItem = function(i) { items.splice(i, 1); sync(); }
-        window.edit = function(i) { let r = records[i]; document.getElementById('date').value = r.date; document.getElementById('itemDropdown').value = r.item; document.getElementById('qty').value = r.qty; document.getElementById('type').value = r.type; document.getElementById('editIndex').value = i; document.getElementById('saveBtn').innerText = "Update"; }
-        window.del = function(i) { if(confirm("Delete?")) { records.splice(i, 1); sync(); } }
-        
-        window.filter = function(type) {
-            let now = new Date();
-            let filtered = records.filter(r => {
-                if(type === 'all') return true;
-                if(type === 'today') return r.date === now.toISOString().split('T')[0];
-                if(type === 'weekly') return new Date(r.date) >= new Date(now.setDate(now.getDate() - 7));
-                if(type === 'monthly') return r.date.substring(0,7) === new Date().toISOString().substring(0,7);
-                if(type === 'custom') return r.date === document.getElementById('customDate').value;
-            });
-            render(filtered);
-        }
+        window.addNewItem = () => { let name=document.getElementById('newItemName').value; if(name) { items.push(name); set(ref(db, 'rr_doubling'), {records, items}); } }
+        window.nextPage = () => { currentPage++; render(); }
+        window.prevPage = () => { currentPage--; render(); }
     </script>
 </body>
-</html>
+    </html>
+    
