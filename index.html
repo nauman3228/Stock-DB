@@ -74,7 +74,6 @@
         }
         button.save { background: var(--win-blue); color: white; font-weight: 600; border: none; cursor: pointer; }
 
-        /* Footer Style */
         footer { margin-top: 20px; text-align: center; font-size: 12px; color: #666; padding: 10px; }
         
         #passwordOverlay {
@@ -107,6 +106,12 @@
         </div>
 
         <div id="dashView">
+            <div style="margin-bottom:15px;">
+                <select id="dashItemFilter" onchange="applyFilters()" style="padding: 8px; font-size: 13px; border-radius: 6px; width: 100%;">
+                    <option value="all">All Qualities</option>
+                </select>
+            </div>
+
             <div class="stat-grid">
                 <div class="stat-card"><div class="stat-label" style="color:#107c10">Total In</div><div id="sumIn" class="stat-val" style="color:#107c10">0</div></div>
                 <div class="stat-card"><div class="stat-label" style="color:#d13438">Out</div><div id="sumOut" class="stat-val" style="color:#d13438">0</div></div>
@@ -116,8 +121,8 @@
             <div class="glass-card">
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <span style="font-size:12px; font-weight:600;">Recent Transactions</span>
-                    <select id="viewRange" style="width:100px; font-size:11px;" onchange="filterData(this.value)">
-                        <option value="all">All Records</option>
+                    <select id="viewRange" style="width:100px; font-size:11px;" onchange="applyFilters()">
+                        <option value="all">All Time</option>
                         <option value="daily">Today</option>
                         <option value="weekly">Weekly</option>
                     </select>
@@ -165,7 +170,6 @@
     </div>
 
     <script type="module">
-        // (Script remains same as before)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
@@ -186,15 +190,52 @@
             if (data) { 
                 records = data.records || []; 
                 items = data.items || []; 
-                filteredRecords = records; 
-                render(); 
+                applyFilters(); // Apply initial filter state
             }
         });
 
+        // Combined Filter Function
+        window.applyFilters = () => {
+            const range = document.getElementById('viewRange').value;
+            const quality = document.getElementById('dashItemFilter').value;
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+
+            let result = [...records];
+
+            // Filter by Quality
+            if (quality !== 'all') {
+                result = result.filter(r => r.item === quality);
+            }
+
+            // Filter by Date Range
+            if (range === 'daily') {
+                result = result.filter(r => r.date === todayStr);
+            } else if (range === 'weekly') {
+                const lastWeek = new Date();
+                lastWeek.setDate(now.getDate() - 7);
+                result = result.filter(r => new Date(r.date) >= lastWeek);
+            }
+
+            filteredRecords = result;
+            currentPage = 1;
+            render();
+        }
+
         window.render = function() {
-            const drop = document.getElementById('itemDropdown');
-            drop.innerHTML = '<option value="">Select Quality</option>';
-            items.forEach(it => { let o = document.createElement("option"); o.value = o.text = it; drop.add(o); });
+            // Update Quality Dropdowns (Admin and Dashboard)
+            const adminDrop = document.getElementById('itemDropdown');
+            const dashDrop = document.getElementById('dashItemFilter');
+            const currentDashVal = dashDrop.value;
+
+            adminDrop.innerHTML = '<option value="">Select Quality</option>';
+            dashDrop.innerHTML = '<option value="all">All Qualities</option>';
+            
+            items.forEach(it => { 
+                let o1 = document.createElement("option"); o1.value = o1.text = it; adminDrop.add(o1); 
+                let o2 = document.createElement("option"); o2.value = o2.text = it; dashDrop.add(o2);
+            });
+            dashDrop.value = currentDashVal;
 
             const sorted = [...filteredRecords].sort((a,b) => new Date(b.date) - new Date(a.date));
             const totalPages = Math.ceil(sorted.length / rowsPerPage) || 1;
@@ -203,20 +244,21 @@
 
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = paginated.map(r => {
-                const idx = records.indexOf(r);
+                const globalIdx = records.indexOf(r);
                 return `<tr><td>${r.date}</td><td>${r.item}</td><td>${r.qty}</td>
                     <td style="color:${r.type==='In'?'#107c10':'#d13438'}; font-weight:bold;">${r.type}</td>
                     <td>
-                        <span class="btn-action" onclick="editRecord(${idx})">✎</span>
-                        <span class="btn-action btn-del" onclick="deleteRecord(${idx})">✕</span>
+                        <span class="btn-action" onclick="editRecord(${globalIdx})">✎</span>
+                        <span class="btn-action btn-del" onclick="deleteRecord(${globalIdx})">✕</span>
                     </td></tr>`;
             }).join('');
 
             let inS=0, outS=0;
-            filteredRecords.forEach(r => { if(r.type==='In') inS+=parseInt(r.qty||0); else outS+=parseInt(r.qty||0); });
-            document.getElementById('sumIn').innerText = inS;
-            document.getElementById('sumOut').innerText = outS;
-            document.getElementById('bal').innerText = (inS - outS);
+            filteredRecords.forEach(r => { if(r.type==='In') inS+=parseFloat(r.qty||0); else outS+=parseFloat(r.qty||0); });
+            
+            document.getElementById('sumIn').innerText = inS.toFixed(2).replace(/\.00$/, '');
+            document.getElementById('sumOut').innerText = outS.toFixed(2).replace(/\.00$/, '');
+            document.getElementById('bal').innerText = (inS - outS).toFixed(2).replace(/\.00$/, '');
             document.getElementById('pageInfo').innerText = `Page ${currentPage} of ${totalPages}`;
         }
 
@@ -241,6 +283,7 @@
                 document.getElementById('adminView').style.display = 'block';
                 document.getElementById('btnDash').className = 'tab-btn';
                 document.getElementById('btnAdmin').className = 'tab-btn active';
+                document.getElementById('date').value = new Date().toISOString().split('T')[0];
             } else {
                 document.getElementById('passError').style.display = 'block';
             }
@@ -251,14 +294,6 @@
                 records.splice(i, 1);
                 set(ref(db, 'rr_doubling'), {records, items});
             }
-        }
-
-        window.filterData = (range) => {
-            const now = new Date();
-            if(range === 'daily') filteredRecords = records.filter(r => r.date === now.toISOString().split('T')[0]);
-            else if(range === 'weekly') filteredRecords = records.filter(r => new Date(r.date) >= new Date(now.setDate(now.getDate()-7)));
-            else filteredRecords = records;
-            currentPage = 1; render();
         }
 
         window.editRecord = (i) => { 
@@ -274,8 +309,13 @@
 
         window.saveOrUpdate = () => {
             const idx = parseInt(document.getElementById('editIndex').value);
-            const r = { date: document.getElementById('date').value, item: document.getElementById('itemDropdown').value, qty: document.getElementById('qty').value, type: document.getElementById('type').value };
-            if(!r.date || !r.qty || !r.item) return alert("Please fill all fields!");
+            const r = { 
+                date: document.getElementById('date').value, 
+                item: document.getElementById('itemDropdown').value, 
+                qty: parseFloat(document.getElementById('qty').value), 
+                type: document.getElementById('type').value 
+            };
+            if(!r.date || isNaN(r.qty) || !r.item) return alert("Please fill all fields!");
             if(idx===-1) records.push(r); else records[idx]=r;
             set(ref(db, 'rr_doubling'), {records, items});
             document.getElementById('editIndex').value=-1; 
@@ -284,8 +324,8 @@
         }
 
         window.addNewItem = () => { 
-            let name=document.getElementById('newItemName').value; 
-            if(name) { 
+            let name=document.getElementById('newItemName').value.trim(); 
+            if(name && !items.includes(name)) { 
                 items.push(name); 
                 set(ref(db, 'rr_doubling'), {records, items}); 
                 document.getElementById('newItemName').value=''; 
